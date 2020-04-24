@@ -5,15 +5,23 @@ key = config["KEY"]
 input_path = config["READSPATH"]
 samples = pd.read_csv(config["METAFILE"], sep = '\t', header = 0)['sample']
 end = config["END"]
+if config["SPECIFYADAPT"]:
+	if end == "pair":
+		adapters1 = pd.read_csv(config["METAFILE"], sep = '\t', header = 0)['adapter1']
+		adapters2 = pd.read_csv(config["METAFILE"], sep = '\t', header = 0)['adapter2']
+		adapters = [(adapter1,adapter2) for adapter1,adapter2 in zip(adapters1,adapters2)] 
+	else:
+		adapters = pd.read_csv(config["METAFILE"], sep = '\t', header = 0)['adapter']
+			
 intermediate_path = config["OUTPUTPATH"] + "/" + config["PROJECT"] + "/trim"
 final_path = config["FINALOUTPUT"] + "/" + config["PROJECT"]
 
 def trimFiles(wildcards):
     if (end == "pair"):
-        forward_trim = expand(intermediate_path + "/{sample}_R1_val_1.fq.gz", sample = samples)
+        forward_trim = expand(intermediate_path + "/{sample}_R1_val_1.fq.gz", sample = samples, adapter = adapters)
         return forward_trim
     else:
-        read_trim = expand(intermediate_path + "/{sample}_trimmed.fq.gz", sample = samples)
+        read_trim = expand(intermediate_path + "/{sample}_trimmed.fq.gz", sample = samples, adapter = adapters)
         return read_trim
 
 rule all:
@@ -36,13 +44,14 @@ if end == "pair":
         input:
             forward = intermediate_path + "/reads/{sample}_forward.fastq.gz",
             reverse = intermediate_path + "/reads/{sample}_reverse.fastq.gz"
+	    adapter_flag = "-a {adapter}[0] -a2 {adapter}[1]" if config["SPECIFYADAPT"] else ""
         output:
             read_trim_forward = intermediate_path + "/{sample}_R1_val_1.fq.gz",
             read_trim_reverse = intermediate_path + "/{sample}_R2_val_2.fq.gz"
         params:
             outputpath = intermediate_path
         shell:
-            "trim_galore --fastqc -j 4 --paired --basename {wildcards.sample} -o {params.outputpath} {input.forward} {input.reverse}"
+            "trim_galore --fastqc -j 4 --paired {input.adapter_flag} --basename {wildcards.sample} -o {params.outputpath} {input.forward} {input.reverse}"
             
 else:
     rule getReads:
@@ -57,12 +66,13 @@ else:
     rule trim:
         input:
             read = intermediate_path + "/reads/{sample}.fastq.gz"
+	    adapter_flag = "-a {adapter}" if config["SPECIFYADAPT"] else ""
         output:
             read_trim = intermediate_path + "/{sample}_trimmed.fq.gz"
         params:
             outputpath = intermediate_path
         shell:
-            "trim_galore --fastqc -j 4 --basename {wildcards.sample} -o {params.outputpath} {input.read}"
+            "trim_galore --fastqc -j 4 {input.adapter_flag} --basename {wildcards.sample} -o {params.outputpath} {input.read}"
 
 rule summaryReport:
     input:

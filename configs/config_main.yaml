@@ -47,7 +47,7 @@ FINALOUTPUT: output
 
 # ================== Configuration for trimming ==================
 
-## All required params have already been defined in the public params
+SPECIFYADAPT: TRUE #Set TRUE to specify the adapter manually in metadata.tsv
 
 # ================== Configuration for quantification using transcriptome ==================
 
